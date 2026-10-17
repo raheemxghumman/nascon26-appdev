@@ -432,7 +432,7 @@ def app_club(club_id: str):
     roster = [{"player_id": pid, "name": pid.replace("-", " ").title(), "position": "mf", "squad_id": club_id}
               for pid, cid in auth.PLAYERS.items() if cid == club_id]
     return {"club_id": club_id, "name": DEMO_TEAMS.get(club_id, club_id), "tenant": auth.TENANTS[tenant],
-            "venue": {"name": "Alpha Stadium", "lat": 33.6844, "lng": 73.0479},
+            "venue": "Alpha Stadium, Islamabad", "venue_coordinates": {"lat": 33.6844, "lng": 73.0479},
             "social": {"instagram": "@" + club_id.replace("-", "")},
             "staff": [{"name": "Imran Khan", "role": "coach"}, {"name": "Sara Ali", "role": "manager"},
                       {"name": "Dr. Hamza", "role": "physio"}],
