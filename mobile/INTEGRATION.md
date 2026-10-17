@@ -23,6 +23,28 @@ Expo native project generation also passes. The native Android build and install
 on a phone remain pending. This milestone is mobile source for integration, not a
 verified release APK.
 
+## Takeover checklist
+
+1. Fetch `ahmed/mobile` or review PR #1 before merging the mobile folder into `main`.
+   Preserve any backend work on your laptop; this branch changes only `mobile/`.
+2. Agree on the four proposed login/read routes below, then adjust `src/api.ts`
+   or implement their documented response shapes in the backend.
+3. Start the real backend, set its LAN address in the app, and complete the phone
+   verification checklist below. No live backend integration has passed yet.
+4. Finish the native release build and commit `mobile/release/app-release.apk`.
+   The first local build targets `arm64-v8a` for the connected Samsung phone;
+   omit that architecture override for the default multi-architecture release.
+5. Complete live SSE/WebSocket updates, pinned match products and add-player.
+   The store currently checks out one selected variant at a time; a multi-item
+   cart remains follow-up work. Update root traceability when integrating.
+
+Local build progress is logged at
+`E:\NASCON-Preparation\logs\leaguedesk-release-build.log` on Ahmed's laptop.
+The native build passed the previous Foojay resolver error after the postinstall
+fix; Java 17 is provisioned automatically by Gradle for the plugin toolchain.
+The generated `android/` directory and local caches are deliberately untracked;
+`npm ci` and Expo prebuild recreate the project from committed configuration.
+
 ## API adapter: `src/api.ts`
 
 The specification fixes audit routes but leaves the mobile login/read routes open.
