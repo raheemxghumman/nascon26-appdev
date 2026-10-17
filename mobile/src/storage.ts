@@ -41,7 +41,7 @@ export async function saveAction(a: QueueItem) {
   await (
     await database
   ).runAsync(
-    "INSERT OR REPLACE INTO actions(id,scope,value) VALUES(?,?,?)",
+    "INSERT INTO actions(id,scope,value) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET scope=excluded.scope,value=excluded.value",
     a.action_id,
     a.scope,
     JSON.stringify(a),

@@ -463,11 +463,12 @@ export function MatchScreen() {
     () => api.score(a.settings, a.session!.token, id),
     previewScore,
   );
+  const refresh = r.refresh;
   React.useEffect(() => {
     if (a.preview || !a.online) return;
-    const timer = setInterval(() => void r.refresh(), 10000);
+    const timer = setInterval(() => void refresh(), 10000);
     return () => clearInterval(timer);
-  }, [a.preview, a.online, r.refresh]);
+  }, [a.preview, a.online, refresh]);
   const v = r.data;
   return (
     <Page title="Match centre" subtitle={id} back>

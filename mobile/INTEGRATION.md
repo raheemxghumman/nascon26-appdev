@@ -17,10 +17,11 @@ The currently checked-in backend foundation only exposes `/health`.
 The match screen polls every ten seconds; WebSocket/SSE live updates and pinned
 match products remain follow-up work. Roster creation/add-player is also follow-up work.
 
-Checkpoint verification: all six pure queue/domain tests pass. Dependency downloads
-are incomplete on the venue connection, so full typecheck/lint, the native Android
-build, and installation on a phone are still pending. This milestone is mobile
-source for integration, not a verified release APK.
+Checkpoint verification: all six queue/domain tests, TypeScript checking, lint,
+Expo dependency compatibility and Android JavaScript/Hermes bundle export pass.
+Expo native project generation also passes. The native Android build and installation
+on a phone remain pending. This milestone is mobile source for integration, not a
+verified release APK.
 
 ## API adapter: `src/api.ts`
 
@@ -57,7 +58,7 @@ action_id/event_id/request_id values for idempotent retries. Batches contain at 
 Activate `E:\NASCON-Preparation\Start-Environment.ps1`, then from this directory:
 
 ```powershell
-npm install
+npm ci
 npm test
 npm run typecheck
 npm run lint

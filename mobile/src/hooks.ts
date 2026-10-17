@@ -50,11 +50,12 @@ export function useResource<T>(
       if (run === generation.current) setLoading(false);
     }
   }, [key, app.preview, app.online, app.session]);
+  const cancel = useCallback(() => {
+    generation.current++;
+  }, []);
   useEffect(() => {
     void refresh();
-    return () => {
-      generation.current++;
-    };
-  }, [refresh]);
+    return cancel;
+  }, [refresh, cancel]);
   return { data, loading, error, cached, refresh };
 }
