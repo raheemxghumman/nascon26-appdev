@@ -143,7 +143,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
     void check();
-    const timer = setInterval(() => void check(), 15000);
+    const timer = setInterval(() => void check(), 5000);
     return () => {
       active = false;
       clearInterval(timer);

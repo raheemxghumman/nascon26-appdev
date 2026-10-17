@@ -442,3 +442,35 @@ def app_club(club_id: str):
 @app.get("/api/v1/products")
 def app_products():
     return {"products": STORE.products()}
+
+
+@app.get("/api/v1/matches/{match_id}/stream")
+async def match_stream(match_id: str):
+    """Server-Sent Events: pushes the score projection whenever the match log changes
+    (score, status transitions, compensations)."""
+    import asyncio
+
+    from fastapi.responses import StreamingResponse
+
+    with LOCK:
+        if match_id not in ENGINE.matches:
+            raise APIError(404, "MATCH_NOT_FOUND", "Unknown match.", {"match_id": match_id})
+
+    async def events():
+        last = -1
+        for _ in range(1800):  # up to 30 minutes per connection
+            with LOCK:
+                stream = ENGINE.matches.get(match_id)
+                snapshot = ENGINE.project(match_id) if stream else None
+            if snapshot is None:
+                break
+            if snapshot["version"] != last:
+                last = snapshot["version"]
+                data = {k: snapshot[k] for k in ("match_id", "status", "outcome", "home", "away", "version")}
+                yield f"event: score\ndata: {json.dumps(data)}\n\n"
+            else:
+                yield ": keep-alive\n\n"
+            await asyncio.sleep(1)
+
+    return StreamingResponse(events(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

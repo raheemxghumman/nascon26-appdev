@@ -466,7 +466,7 @@ export function MatchScreen() {
   const refresh = r.refresh;
   React.useEffect(() => {
     if (a.preview || !a.online) return;
-    const timer = setInterval(() => void refresh(), 10000);
+    const timer = setInterval(() => void refresh(), 3000);
     return () => clearInterval(timer);
   }, [a.preview, a.online, refresh]);
   const v = r.data;
