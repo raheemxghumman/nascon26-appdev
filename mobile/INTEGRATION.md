@@ -70,6 +70,8 @@ cd android
 Copy `android/app/build/outputs/apk/release/app-release.apk` to
 `mobile/release/app-release.apk` before final submission. Prebuild generates native
 folders; native configuration lives in app.json, not handwritten native files.
+The postinstall script applies the documented React Native 0.83/Foojay resolver
+compatibility fix for Expo 55's Gradle 9 (upstream issue react-native#55781).
 The generated project's release signing must be checked before final delivery;
 event demonstration signing is separate from Play Store distribution signing.
 
