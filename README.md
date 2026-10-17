@@ -29,6 +29,26 @@ Created on every startup and every `POST /audit/v1/reset`.
 | Player (player-alpha-1) | player@nascon.test | Nascon@26 |
 | General Viewer | viewer@nascon.test | Nascon@26 |
 
-## Mobile
+## Architecture
 
-React Native (Android). Source in `mobile/`, release build at `mobile/release/app-release.apk`.
+| Service | Purpose |
+|---|---|
+| `api` | FastAPI app on :8080: audit contract (`/audit/v1/*`), mobile routes (`/api/v1/*`), SSE live scores |
+| `worker` | Consumes the internal `domain-events` Redis Stream (order status changes, match events) |
+| `postgres` | Database (readiness probe) |
+| `redis` | Cache and internal event queue (Redis Streams) |
+
+Design decisions are in `ADR.md`; requirement-to-code-to-test mapping is in `TRACEABILITY.md`.
+
+## Mobile app
+
+React Native (Expo SDK 55), Android. Source in `mobile/`; release build at `mobile/release/app-release.apk`.
+
+1. Install: `adb install -r mobile/release/app-release.apk` (Android 10+).
+2. Point the app at the backend in **Settings**:
+   - emulator: `http://10.0.2.2:8080` (default)
+   - phone over USB: run `adb reverse tcp:8080 tcp:8080`, then use `http://localhost:8080`
+   - phone on the team hotspot: `http://<laptop LAN IP>:8080`
+3. Log in with one of the demo accounts above.
+
+Build from source: `cd mobile && npm install && npx expo prebuild --platform android && cd android && ./gradlew assembleRelease`.
