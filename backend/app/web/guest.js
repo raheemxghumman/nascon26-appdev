@@ -5,7 +5,9 @@ const entity = path[3] || 'match-m1';
 const isMatch = path[2] === 'matches';
 const isCreator = path[2] === 'creator';
 const isCostream = path[2] === 'costream';
-const room = isCostream ? `chat-${entity}` : `chat-${entity}`;
+// A creator broadcasts into a match: share its chat room and QR with the viewers of that match.
+const matchEntity = isCreator ? (new URLSearchParams(location.search).get('match') || 'match-m1') : entity;
+const room = `chat-${matchEntity}`;
 let guestToken = sessionStorage.getItem('guestToken');
 let account = JSON.parse(sessionStorage.getItem('account') || 'null');
 let cart = JSON.parse(sessionStorage.getItem('guestCart') || '[]');
@@ -46,7 +48,7 @@ async function start(){
   else if(isMatch){$('#title').textContent='Alpha United vs Alpha Rovers';$('#subtitle').textContent='Football · Alpha Stadium, Islamabad';if(path[4]==='vod')$('#video-message').textContent='Match complete · recordings';if(path[4]==='notice')$('#video-message').textContent='Match '+new URLSearchParams(location.search).get('state');}
   else{$('#title').textContent=entity.replaceAll('-',' ');$('#teams').textContent='Club community';}
   $('#app-link').href=`nascon://${isCostream?'stream':'entity'}/${encodeURIComponent(entity)}`;
-  {const qrBase=`/audit/v1/qr/${encodeURIComponent(entity)}/export`;$('#qr').src=qrBase+'.png';for(const fmt of ['svg','png','pdf']){const link=$('#qr-'+fmt);link.href=`${qrBase}.${fmt}`;link.setAttribute('download',`${entity}-qr.${fmt}`);link.setAttribute('rel','noopener');}}
+  {const qrBase=`/audit/v1/qr/${encodeURIComponent(matchEntity)}/export`;$('#qr').src=qrBase+'.png';for(const fmt of ['svg','png','pdf']){const link=$('#qr-'+fmt);link.href=`${qrBase}.${fmt}`;link.setAttribute('download',`${matchEntity}-qr.${fmt}`);link.setAttribute('rel','noopener');}}
   connectScore();connectChat();await loadMedia();setInterval(loadMedia,2000);
 }
 start().catch(showError);
