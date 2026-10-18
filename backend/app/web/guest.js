@@ -46,7 +46,7 @@ async function start(){
   else if(isMatch){$('#title').textContent='Alpha United vs Alpha Rovers';$('#subtitle').textContent='Football · Alpha Stadium, Islamabad';if(path[4]==='vod')$('#video-message').textContent='Match complete · recordings';if(path[4]==='notice')$('#video-message').textContent='Match '+new URLSearchParams(location.search).get('state');}
   else{$('#title').textContent=entity.replaceAll('-',' ');$('#teams').textContent='Club community';}
   $('#app-link').href=`nascon://${isCostream?'stream':'entity'}/${encodeURIComponent(entity)}`;
-  if(!isCreator){$('#qr').src=`/audit/v1/qr/${encodeURIComponent(entity)}/export.png`;for(const fmt of ['svg','png','pdf'])$('#qr-'+fmt).href=`/audit/v1/qr/${encodeURIComponent(entity)}/export.${fmt}`;}
+  {const qrBase=`/audit/v1/qr/${encodeURIComponent(entity)}/export`;$('#qr').src=qrBase+'.png';for(const fmt of ['svg','png','pdf']){const link=$('#qr-'+fmt);link.href=`${qrBase}.${fmt}`;link.setAttribute('download',`${entity}-qr.${fmt}`);link.setAttribute('rel','noopener');}}
   connectScore();connectChat();await loadMedia();setInterval(loadMedia,2000);
 }
 start().catch(showError);

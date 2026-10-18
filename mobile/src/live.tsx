@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View, PermissionsAndroid, Platform } from "react-native";
+import { ActivityIndicator, Linking, StyleSheet, Text, View, PermissionsAndroid, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { WebView } from "react-native-webview";
@@ -59,7 +59,15 @@ export function LiveSurface({ id, creator = false }: { id: string; creator?: boo
         renderError={() => <View style={{padding:20}}><Text>The connection is unavailable. Use Retry connection above.</Text></View>}
         onError={(event) => setError(event.nativeEvent.description)}
         onLoadEnd={() => {if(app.session)web.current?.injectJavaScript(injected + " window.dispatchEvent(new Event('league-native-session')); true;");}}
-        onShouldStartLoadWithRequest={(request) => !request.url.startsWith("nascon:")}
+        onShouldStartLoadWithRequest={(request) => {
+          if (request.url.startsWith("nascon:")) return false;
+          // QR exports (SVG/PNG/PDF) are downloads; the in-app WebView cannot save or render them.
+          if (/\/audit\/v1\/qr\/[^/]+\/export\.(svg|png|pdf)/.test(request.url)) {
+            void Linking.openURL(request.url);
+            return false;
+          }
+          return true;
+        }}
       />
     </SafeAreaView>
   );
