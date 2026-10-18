@@ -1,5 +1,7 @@
 # Day 2 progress and takeover notes
 
+Latest source handover: remaining non-APK changes are published on top of Raheem's `9661876`; his release APK is preserved. Read `DAY2_HANDOVER_AUDIT.md`, including its subsequent-source-handover update, for current limitations. The older pending-APK notes below are historical.
+
 Continue from locked Day 1 commit `ef195aa`. No history was rewritten.
 
 ## Verified at the first checkpoint

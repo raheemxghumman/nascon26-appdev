@@ -1,5 +1,15 @@
 # LeagueDesk Day 2 — Technical Audit and Handover for Abdul Raheem
 
+## Subsequent source handover
+
+This update supersedes the pending-push details in the original 13:15 audit below:
+
+- The remaining non-APK changes in this commit form one source-only handover on top of Raheem's `9661876`, preserving his settings fixes and his release APK byte for byte. Do not merge the earlier local APK integration history or `codex/apk-transfer` into submission `main`.
+- Included: FFmpeg image/Python startup fix; authenticated co-stream creation/state routes; recording-list/VOD links; co-stream invitation and host control screens; H264 preference and labelled camera-only fallback; invitation/notification erasure; Appium idle-wait correction; updated tests/reports and coverage.
+- The new FFmpeg container built successfully and reports healthy. This establishes runtime startup, not successful composed-media playback or handoff.
+- Web JavaScript syntax checks pass; the final source-handover backend run passed all 142 tests in 29.71 seconds, including authenticated session creation/state and invitation/notification erasure. All five measured modules remain above 85%. Appium, Grid and media evidence below retain their individual scope and timestamps; full physical-camera/composite/background-push gaps remain open.
+- There are no new native source edits in this handover. Raheem should build the final APK from the resulting remote `main` and run the final device checks there. Web assets require rebuilding/restarting the API service.
+
 ## Checkpoint and overall status
 
 Prepared on **18 October 2026, approximately 13:15 PKT**, from `E:\NASCON App Dev`. This is a checkpoint audit, not a claim that every Day 2 requirement is finished.
@@ -61,7 +71,7 @@ Latest measured line coverage (`COVERAGE_DAY2.json`, generated from `tests/repor
 | `costream` | 100.00% |
 | `qr_guest` | 91.97% |
 | `moderation_dlq` | 92.52% |
-| `observability` | 91.38% |
+| `observability` | 100.00% |
 
 All five exceed 85%. Coverage is unit/contract coverage; it does not establish FFmpeg composition, physical camera success or background push.
 

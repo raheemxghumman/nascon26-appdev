@@ -167,8 +167,12 @@ def test_signed_invitation_host_controls_and_notification_delivery():
     host = main.auth.issue_token(main.auth.USERS["player@nascon.test"])
     outsider = main.auth.issue_token({"user_id":"second","role":"player","player_id":"player-beta-2"})
     headers={"Authorization":"Bearer "+host}
-    main.DAY2.costream.session(session_body(participants=["player-alpha-1"],layout="grid_4"))
+    create=session_body(participants=["player-alpha-1"],layout="grid_4")
+    assert client.post("/api/v1/costream/session",json=create,headers={"Authorization":"Bearer "+outsider}).status_code==403
+    assert client.post("/api/v1/costream/session",json=create,headers=headers).status_code==201
     root="/api/v1/costream/cs-session-101"
+    assert client.get(root).json()["active_host"]=="player-alpha-1"
+    assert client.get("/assets/costream.js").status_code==200
     assert client.post(root+"/control",json={"action":"invite","player_id":"player-beta-2"},headers={"Authorization":"Bearer "+outsider}).status_code==403
     with client.websocket_connect("/ws/notifications") as ws:
         ws.send_json({"token":outsider})
@@ -181,6 +185,10 @@ def test_signed_invitation_host_controls_and_notification_delivery():
     assert joined.status_code==200 and joined.json()["active_participants"]==["player-alpha-1","player-beta-2"]
     muted=client.post(root+"/control",json={"action":"mute","player_id":"player-beta-2"},headers=headers)
     assert muted.json()["muted"]==["player-beta-2"]
+    assert client.delete("/audit/v1/privacy/user/player-beta-2").status_code==200
+    assert not main.DAY2.db.all("invite")
+    assert not main.DAY2.db.all("notification")
+    assert not main.DAY2.db.all("delivered:player-beta-2")
 
 
 def test_media_auth_default_keys_and_eviction_requests(monkeypatch):

@@ -39,6 +39,14 @@ class Observability:
                     self.db.put("merge", token, None)
             self.db.put("cart", uid, {})
             self.db.put("erased", uid, True)
+            for token, invitation in self.db.all("invite").items():
+                if invitation.get("player_id") == uid:
+                    self.db.delete("invite", token)
+            for eid, notification in self.db.all("notification").items():
+                if notification.get("recipient") == uid:
+                    self.db.delete("notification", eid)
+            for eid in self.db.all("delivered:" + uid):
+                self.db.delete("delivered:" + uid, eid)
             for room, state in self.db.all("chat").items():
                 for msg in state["messages"]:
                     if msg["sender"] == uid:

@@ -107,6 +107,31 @@ def install(core):
             d.db.put("session_controls", sid, controls)
         return {"session_id": sid, **controls}
 
+    @app.post("/api/v1/costream/session")
+    async def create_costream(request: Request):
+        claims = auth.verify_token(request.headers.get("authorization"))
+        body = await core.read_json(request)
+        if not isinstance(body, dict):
+            raise validation_error(["body"])
+        if claims.get("player_id") != body.get("host_player_id") and claims["role"] != "super_admin":
+            raise APIError(403, "FORBIDDEN", "You can only start a co-stream as yourself.")
+        status, result = d.costream.session(body)
+        return core.respond(status, result)
+
+    @app.get("/api/v1/costream/{sid}")
+    def costream_state(sid: str):
+        state = d.db.get("session", sid)
+        if not state:
+            raise APIError(404, "STREAM_NOT_FOUND", "Unknown co-stream.")
+        return {**state, "controls": d.db.get("session_controls", sid, {"muted": [], "spotlight": None})}
+
+    @app.get("/api/v1/recordings/{entity}")
+    def recordings(entity: str):
+        records = d.db.all("vod:" + entity) if entity.startswith("player-") else d.db.all("vod")
+        if entity.startswith("cs-session-"):
+            records = {k:v for k,v in records.items() if v["stream"] == "costream/" + entity}
+        return {"recordings": list(records.values())}
+
     @app.post("/api/v1/costream/{sid}/join")
     async def broadcaster_join(sid: str, request: Request):
         from .streaming import signature
@@ -473,7 +498,7 @@ def install(core):
 
     @app.get("/assets/{name}")
     def web_asset(name: str):
-        if name not in ("guest.js", "guest.css", "creator.js"):
+        if name not in ("guest.js", "guest.css", "creator.js", "costream.js"):
             raise APIError(404, "NOT_FOUND", "Unknown asset.")
         path = Path(__file__).parent / "web" / name
         return Response(path.read_bytes(), media_type="text/css" if name.endswith("css") else "application/javascript")

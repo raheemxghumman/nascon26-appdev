@@ -26,6 +26,8 @@ def phone():
         "appium:skipDeviceInitialization":True,
         **({"appium:udid":os.environ["ANDROID_UDID"]} if os.environ.get("ANDROID_UDID") else {})})
     driver = webdriver.Remote(os.environ.get("APPIUM_URL","http://localhost:4723"),options=options)
+    # Measure delivery without UiAutomator's default idle-animation waiting period.
+    driver.update_settings({"waitForIdleTimeout":0,"waitForSelectorTimeout":0})
     adb = shutil.which("adb") or str(Path(os.environ.get("ANDROID_HOME", "D:/Android/Sdk")) / "platform-tools" / ("adb.exe" if os.name == "nt" else "adb"))
     if API in ("http://localhost:8080", "http://127.0.0.1:8080"):
         udid = driver.capabilities.get("deviceUDID") or os.environ.get("ANDROID_UDID")
