@@ -143,3 +143,66 @@ def test_live_web_and_socket():
         assert ws.receive_json()["home"]["score"]==1
         client.post("/audit/v1/events",json={"event_id":"new-goal","match_id":"match-m1","type":"score","payload":{"team_id":"club-alpha-2","event_type":"goal"}})
         assert ws.receive_json()["away"]["score"]==1
+
+
+def test_media_auth_default_keys_and_eviction_requests(monkeypatch):
+    from app import streaming
+    from app.errors import APIError
+    calls=[]
+    class MediaClient:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self,*args): pass
+        def get(self,url):
+            class Result:
+                status_code=200
+                def json(self):return {"items":[{"id":"connection-1","path":"live/sk_live_test"}]}
+            return Result()
+        def post(self,url): calls.append(url)
+    monkeypatch.setattr(streaming.httpx,"Client",MediaClient)
+    main.DAY2.streaming.disconnect("sk_live_test")
+    assert len(calls)==2 and all("/kick/connection-1" in url for url in calls)
+    main.DAY2.streaming.disconnect("other")
+    assert len(calls)==2
+    status,body=main.DAY2.streaming.key({"action":"generate","player_id":"player-beta-1"})
+    assert status==201 and len(body["stream_key"])==24
+    assert main.DAY2.streaming.media_auth({"path":"live/"+body["stream_key"],"action":"publish"})["authorized"]
+    main.DAY2.costream.session(session_body())
+    assert main.DAY2.streaming.media_auth({"path":"costream/cs-session-101","action":"read"})["authorized"]
+    for value in ([],None,{"action":"generate","player_id":"player-alpha-1","stream_key_override":123},
+                  {"action":"generate","player_id":"player-alpha-1","stream_key_override":"a/b"}):
+        with pytest.raises(APIError):main.DAY2.streaming.key(value)
+
+
+def test_socket_handoff_drop_capacity_and_missing():
+    from app.errors import APIError
+    main.DAY2.costream.session(session_body())
+    out=main.DAY2.costream.drop("cs-session-101","player-alpha-1")
+    assert out["active_host"]=="player-alpha-2" and out["handoff_occurred"]
+    for pid in ["player-alpha-2","player-beta-1","player-beta-2"]:
+        out=main.DAY2.costream.drop("cs-session-101",pid)
+    assert out["participant_count"]==0 and out["status"]=="terminated"
+    with pytest.raises(APIError):main.DAY2.costream.drop("missing","missing")
+    for body in (None, [], session_body(simulate_host_drop=1),session_body(session_id=2)):
+        with pytest.raises(APIError):main.DAY2.costream.session(body)
+    assert client.post("/audit/v1/costream/session",json=session_body(layout="spotlight")).status_code==409
+    main.auth.PLAYERS["fifth-test-player"]="club-alpha-1"
+    try:
+        body=session_body(session_id="too-many",participants=session_body()["participants"]+["fifth-test-player"])
+        assert client.post("/audit/v1/costream/session",json=body).json()["error"]["code"]=="COSTREAM_SESSION_FULL"
+    finally:main.auth.PLAYERS.pop("fifth-test-player")
+
+
+def test_metrics_live_sample_and_erasure_linked_records(monkeypatch):
+    from app import observability
+    class Result:
+        def json(self):return {"items":[{"ready":True,"bytesReceived":10000}]}
+    monkeypatch.setattr(observability.httpx,"get",lambda *a,**k:Result())
+    client.post("/audit/v1/guest/cart-merge",json=merge_body())
+    main.DAY2.moderation.process({"chat_room_id":"room","incoming_messages":[{"message_id":"m","sender":"player-alpha-1","text":"hello"}]})
+    metrics=client.get("/metrics").text
+    assert "nascon_active_streams_total 1" in metrics
+    assert client.delete("/audit/v1/privacy/user/player-alpha-1").status_code==200
+    assert main.DAY2.db.get("guest","guest_anon_tok_7721")=={"valid":False,"anonymized":True}
+    assert main.DAY2.db.get("chat","room")["messages"][0]["sender"]=="anonymous"
+    assert client.delete("/audit/v1/privacy/user/missing").status_code==404

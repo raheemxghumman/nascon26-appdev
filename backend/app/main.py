@@ -217,25 +217,39 @@ reset_state({})
 
 
 # ---- middleware ----------------------------------------------------------
-@app.middleware("http")
-async def guards(request: Request, call_next):
-    from .qr_guest import forbid_guest
-    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.url.path not in (
-            "/api/v1/auth/login", "/api/v1/guest/session", "/audit/v1/guest/cart-merge", "/api/v1/guest/cart-merge"):
-        try:
-            forbid_guest(request.headers.get("authorization"))
-        except APIError as exc:
-            return error_response(exc.status, exc.code, exc.message, exc.details)
-    length = request.headers.get("content-length")
-    if length is not None and length.isdigit() and int(length) > config.MAX_BODY_BYTES:
-        return error_response(413, "PAYLOAD_TOO_LARGE", "Request body exceeds 1 MB.")
-    if request.url.path.startswith("/api/v1/"):
-        ip = request.client.host if request.client else "unknown"
-        retry = LIMITER.check(ip)
-        if retry is not None:
-            return error_response(429, "RATE_LIMITED", "Too many requests, slow down.", {},
-                                  headers={"Retry-After": str(retry)})
-    return await call_next(request)
+class RequestGuards:
+    """Pure ASGI guards avoid a per-request streaming task group under load."""
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        from .qr_guest import forbid_guest
+        headers = {k.decode("latin1"): v.decode("latin1") for k, v in scope.get("headers", [])}
+        path, method = scope["path"], scope["method"]
+        response = None
+        if method in ("POST", "PUT", "PATCH", "DELETE") and path not in (
+                "/api/v1/auth/login", "/api/v1/guest/session", "/audit/v1/guest/cart-merge", "/api/v1/guest/cart-merge"):
+            try:
+                forbid_guest(headers.get("authorization"))
+            except APIError as exc:
+                response = error_response(exc.status, exc.code, exc.message, exc.details)
+        length = headers.get("content-length")
+        if response is None and length is not None and length.isdigit() and int(length) > config.MAX_BODY_BYTES:
+            response = error_response(413, "PAYLOAD_TOO_LARGE", "Request body exceeds 1 MB.")
+        if response is None and path.startswith("/api/v1/"):
+            peer = scope.get("client")
+            retry = LIMITER.check(peer[0] if peer else "unknown")
+            if retry is not None:
+                response = error_response(429, "RATE_LIMITED", "Too many requests, slow down.", {},
+                                         headers={"Retry-After": str(retry)})
+        if response is not None:
+            return await response(scope, receive, send)
+        return await self.app(scope, receive, send)
+
+
+app.add_middleware(RequestGuards)
 
 
 async def read_json(request: Request, optional=False):

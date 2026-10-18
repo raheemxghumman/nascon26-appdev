@@ -7,7 +7,9 @@ from .common import check_ids, is_id, is_int
 from .errors import APIError, validation_error
 from .signing import sign
 
-EVENT_TYPES = {"match_init", "match_start", "score", "discipline", "tiebreak_winner", "match_end", "compensation"}
+STATUS_EVENTS = {"match_postpone": "postponed", "match_postponed": "postponed", "match_cancel": "cancelled",
+                 "match_cancelled": "cancelled", "match_abandon": "abandoned", "match_abandoned": "abandoned"}
+EVENT_TYPES = {"match_init", "match_start", "score", "discipline", "tiebreak_winner", "match_end", "compensation"} | set(STATUS_EVENTS)
 COMPENSABLE = {"score", "discipline", "tiebreak_winner"}
 
 
@@ -32,7 +34,7 @@ class ScoringEngine:
         bad = [f for f in ("event_id", "match_id") if not is_id(body.get(f))]
         if body.get("type") not in EVENT_TYPES:
             bad.append("type")
-        default = {} if body.get("type") in ("match_start", "match_end") else None
+        default = {} if body.get("type") in ({"match_start", "match_end"} | set(STATUS_EVENTS)) else None
         payload = body.get("payload", default)
         if not isinstance(payload, dict):
             bad.append("payload")
@@ -109,6 +111,9 @@ class ScoringEngine:
             if level and not sport["draw_allowed"] and state["tiebreak_winner_team_id"] is None:
                 raise APIError(409, "TIE_NOT_ALLOWED", "Scores are level and draws are not allowed.",
                                {"match_id": match_id})
+        elif t in STATUS_EVENTS:
+            if status not in ("upcoming", "in_progress"):
+                raise APIError(409, "ILLEGAL_TRANSITION", "Only an upcoming or live match may be suspended.")
         elif t == "compensation":
             target = self.events.get(payload["compensates"])
             if target is None:
@@ -165,6 +170,8 @@ class ScoringEngine:
                 status = "in_progress"
             elif t == "match_end":
                 status = "completed"
+            elif t in STATUS_EVENTS:
+                status = STATUS_EVENTS[t]
             if e["event_id"] in compensated_by or t == "compensation":
                 continue
             if t == "score":

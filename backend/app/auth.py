@@ -76,14 +76,23 @@ def verify_token(authorization) -> dict:
     exp = claims.get("exp")
     if not isinstance(exp, (int, float)) or exp <= time.time() or claims.get("role") not in ROLES:
         raise unauthenticated("Token expired or invalid.")
+    if _erased(claims):
+        raise unauthenticated("Account has been anonymized.")
     return claims
+
+
+def _erased(user):
+    import sys
+    core = sys.modules.get(__package__ + ".main")
+    phase = getattr(core, "DAY2", None)
+    return phase is not None and bool(phase.db.get("erased", user.get("player_id", user.get("user_id"))))
 
 
 def login(email, password) -> dict:
     user = USERS.get(email.lower()) if isinstance(email, str) else None
     ok = isinstance(password, str) and hmac.compare_digest(
         hashlib.pbkdf2_hmac("sha256", password.encode(), PASSWORD_SALT, 100_000).hex(), PASSWORD_HASH)
-    if user is None or not ok:
+    if user is None or not ok or _erased(user):
         raise APIError(401, "UNAUTHENTICATED", "Email or password is incorrect.")
     return {"token": issue_token(user), "role": user["role"], "user_id": user["user_id"],
             "tenant_id": user["tenant_id"], "email": email.lower(),

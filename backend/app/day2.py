@@ -40,6 +40,7 @@ class PhaseII:
 
     def reset(self):
         self.db.clear()
+        self.qr.inspect_cache.clear()
         self.seed()
 
 
@@ -63,7 +64,7 @@ def install(core):
         return Response(data, media_type=mime, headers={"Content-Disposition": f'inline; filename="qr.{fmt}"'})
 
     @app.get("/audit/v1/qr/{entity_id}")
-    def qr(entity_id: str, request: Request, inspect: bool = False):
+    async def qr(entity_id: str, request: Request, inspect: bool = False):
         return d.qr.metadata(entity_id, inspect, request.headers.get("user-agent", ""))
 
     @app.get("/q/{code}")
@@ -233,7 +234,7 @@ def install(core):
 
     @app.get("/api/v1/chat/{room}")
     def chat_read(room: str):
-        return {"messages": d.db.get("chat", room, {"messages": []})["messages"]}
+        return {"messages": d.moderation.messages(room)}
 
     @app.get("/api/v1/players/{pid}")
     def player_profile(pid: str):
@@ -295,8 +296,7 @@ def install(core):
         try:
             sequence = 0
             while True:
-                state = d.db.get("chat", room, {"messages": []})
-                for message in state["messages"]:
+                for message in d.moderation.messages(room):
                     if message["sequence"] > sequence:
                         await ws.send_json(message)
                         sequence = message["sequence"]

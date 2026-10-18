@@ -44,6 +44,9 @@ class Moderation:
     def __init__(self, db):
         self.db = db
 
+    def messages(self, room):
+        return sorted(self.db.all("chat_message:" + room).values(), key=lambda m: m["sequence"])
+
     def deliver(self, event, sender):
         """Try actual delivery three times, then persist the undelivered event."""
         for attempt in range(1, 4):
@@ -85,7 +88,7 @@ class Moderation:
             state = self.db.get("chat", room, {"kicked": [], "muted": [], "messages": [], "decisions": {}, "rates": {}, "seq": 0})
             for msg in incoming:
                 mid, sender, text = msg["message_id"], msg["sender"], msg["text"]
-                prior = state["decisions"].get(mid)
+                prior = self.db.get("chat_decision:" + room, mid)
                 if prior:
                     if prior["message"] is not None:
                         filtered.append(prior["message"])
@@ -109,10 +112,13 @@ class Moderation:
                               "reason": "profanity_leetspeak" if profanity else None}
                     filtered.append(result)
                     state["seq"] += 1
-                    state["messages"].append({**result, "sequence": state["seq"]})
+                    message = {**result, "sequence": state["seq"]}
+                    self.db.put("chat_message:" + room, mid, message)
+                    state["messages"] = (state["messages"] + [message])[-20:]
                 if profanity and sender not in state["kicked"]:
                     state["kicked"].append(sender)
-                state["decisions"][mid] = {"flagged": flagged, "message": result}
+                self.db.put("chat_decision:" + room, mid, {"flagged": flagged, "message": result})
+            state["decisions"] = {}
             self.db.put("chat", room, state)
             dlq = list(self.db.all("dlq").values())
             payload = {"chat_room_id": room, "flagged_count": flagged_count,

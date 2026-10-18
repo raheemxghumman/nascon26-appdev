@@ -5,7 +5,7 @@
 - **Context:** The grader compares JSON field-by-field over HTTP on port 8080; we had about four hours and the QA tooling is Python.
 - **Decision:** FastAPI + uvicorn in `backend/`, one container built from `python:3.12-slim`.
 - **Alternatives:** NestJS (team writes more Python; one language for app code and tests), Django (heavier for a contract API).
-- **Consequences:** + fast iteration, plain dicts match the contract exactly. − single process; acceptable for this load.
+- **Consequences:** Fast iteration and exact contract responses. One API process; Phase II uses pure ASGI guards to avoid unnecessary request task groups. The local 550-user profile passed at 623ms p95; independent cloud verification remains required.
 
 ## ADR-002: Event sourcing with an append-only log and compensating events
 - **Status:** Accepted
@@ -26,27 +26,32 @@
 - **Decision:** Mutations happen under one lock per aggregate (domain lock, store lock). Checkout reserves all items atomically, calls the mock gateway, then commits or releases.
 - **Alternatives:** `SELECT … FOR UPDATE` in Postgres (planned when state moves to the database), optimistic versioning with retries.
 - **Consequences:** + provably no overselling, simple to reason about. − one API replica only; scaling out needs the DB-row-lock variant.
+- **Phase II:** Guest merges, moderation decisions and co-stream state use SQLite transactions with WAL on a persistent Docker volume. SQLite NORMAL synchronization preserves process-restart durability but can lose the latest transactions after a machine power failure. Day 1 state is still in memory.
 
 ## ADR-005: Policy-as-code RBAC with JWT (HS256)
 - **Status:** Accepted
 - **Context:** Five roles, ownership scopes (own league / club / player) and absolute tenant isolation; tampered and `alg:none` tokens must get 401.
 - **Decision:** `auth.can(action, claims, resource)` is the single policy function; tokens are verified by hand (algorithm pinned to HS256, constant-time signature compare, expiry). Denials are 403, never 404, across tenants.
 - **Consequences:** + one place to audit, negative tests cover every cell of the matrix. − policy changes are code changes (reviewed and tested).
+- **Phase II:** A shared server guard rejects guest bearer tokens on write routes with `GUEST_WRITE_FORBIDDEN`; mobile and web buttons are not the security boundary. Cart migration is separately authorized for the logged-in account.
 
 ## ADR-006: Deterministic HMAC signatures over canonical JSON
 - **Status:** Accepted
 - **Context:** Events and receipts must carry `HMAC-SHA256(DAY1_SALT, id|canonical(payload))` that the grader recomputes.
 - **Decision:** `signing.py` implements the exact Appendix A recipe (sorted keys, no whitespace, UTF-8, non-ASCII kept). The salt is read only from the environment.
 - **Consequences:** + byte-identical with the reference (tested with the published vectors). − any payload echo must be returned exactly as signed.
+- **Phase II:** The same canonical serializer signs the exact five endpoint payloads using a separate environment-only `DAY2_SALT`. QR signatures change with match state while the printed short URL stays constant.
 
 ## ADR-007: Offline-first mobile app with a persistent action queue
 - **Status:** Accepted
 - **Context:** NFR-4: cached screens and queued scoring / roster actions must survive airplane mode and app restarts.
 - **Decision:** React Native (Expo) with SQLite caches and a persistent queue in the 5.14 action format; sync via `/audit/v1/offline-sync`, where the server sorts by `queued_at`, rebases stale actions and reports server-wins conflicts per action. Tokens live in the Android Keystore (expo-secure-store).
 - **Consequences:** + judges' airplane-mode flow works, conflicts are explained in plain language. − the server is the source of truth; offline edits can be rejected.
+- **Phase II:** Native Expo Camera scans QR codes; native intent routing opens guest-readable screens without login. A WebView shares the self-hosted guest/creator experience, with native permission prompts and WHIP camera publishing. Browser camera secure-context and ICE connectivity require real-device verification.
 
 ## ADR-008: Internal event queue on Redis Streams; testing strategy
 - **Status:** Accepted
 - **Context:** Order status changes and match events must be emitted to an internal queue; quality is scored by hidden vectors and coverage.
 - **Decision:** Domain events are `XADD`ed to the `domain-events` Redis stream, best-effort so a queue outage never fails a request. Tests: pure-function unit tests for fixtures and standings, API tests through FastAPI's TestClient for every audit route, coverage per area in `COVERAGE.json`.
 - **Consequences:** + decoupled consumers, fast deterministic tests. − best-effort publish can drop events if Redis is down (acceptable for Phase I, revisit with an outbox).
+- **Phase II:** Moderation failures use bounded delivery retries and durable dead-letter records. Real Grid tests, Appium tests, a 25-client WebSocket probe and the fixed 550-user k6 profile are committed. Test reports and measured module coverage describe what was actually executed; media and background notification verification is separate.

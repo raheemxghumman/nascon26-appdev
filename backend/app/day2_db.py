@@ -14,6 +14,7 @@ class Database:
             os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         self.conn = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA synchronous=NORMAL")
         self.conn.execute("CREATE TABLE IF NOT EXISTS records (kind TEXT, id TEXT, value TEXT, PRIMARY KEY(kind,id))")
 
     @contextmanager
@@ -44,3 +45,7 @@ class Database:
     def clear(self):
         with self.lock:
             self.conn.execute("DELETE FROM records")
+
+    def delete(self, kind, key):
+        with self.lock:
+            self.conn.execute("DELETE FROM records WHERE kind=? AND id=?", (kind, key))

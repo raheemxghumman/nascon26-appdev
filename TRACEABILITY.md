@@ -31,8 +31,8 @@ Tests run with `./run_tests.sh`. Audit routes are wired in `backend/app/main.py`
 | FR-4.4 cart merge | `qr_guest.py` | concurrent replay and stock tests pass |
 | FR-5.2 retry/DLQ | `moderation_dlq.py` | failure-simulation contract tests pass; background push incomplete |
 | FR-5.3 moderation | `moderation_dlq.py` | exact examples, obfuscation and concurrency tests pass |
-| NFR-1 score latency | `day2.py`, `web/guest.js` | Grid DOM updates tested within 500ms; 25-viewer probe pending |
-| NFR-2 load | `tests/k6_load.js` | required profile written; full run pending |
+| NFR-1 score latency | `day2.py`, `web/guest.js` | Grid DOM updates within 500ms; 25-client probe passed at 78ms p95 |
+| NFR-2 load | `tests/k6_load.js` | full local direct-Docker 550-user profile passed at 622.71ms p95, 0 failures; cloud recheck pending |
 | NFR-6 metrics | `observability.py` | contract test passes |
 | NFR-8 accessibility | `web/guest.html`, `web/guest.css` | semantic labels, keyboard controls, 48px targets; partial Grid inspection |
 | NFR-9 privacy | `qr_guest.py`, `observability.py` | aggregate telemetry only; erasure needs broader verification |

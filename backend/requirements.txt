@@ -5,4 +5,3 @@ redis==5.1.1
 httpx==0.28.1
 qrcode[pil]==8.2
 reportlab==4.4.4
-minio==7.2.16

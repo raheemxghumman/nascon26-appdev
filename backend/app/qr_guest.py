@@ -1,5 +1,6 @@
 """Dynamic QR routing, privacy-minimal scan counters and transactional guest cart migration."""
 import io
+import time
 from collections import Counter
 from datetime import datetime, timezone
 import qrcode
@@ -15,6 +16,7 @@ from .streaming import signature
 class QRGuest:
     def __init__(self, db, engine, store):
         self.db, self.engine, self.store = db, engine, store
+        self.inspect_cache = {}
 
     def seed(self):
         for entity, code in (("match-m1", "m1-live"), ("player-alpha-1", "p-alpha-1"), ("club-alpha-1", "c-alpha-1")):
@@ -31,6 +33,12 @@ class QRGuest:
     def metadata(self, entity, inspect=False, user_agent=""):
         if not self.exists(entity):
             raise APIError(404, "QR_NOT_FOUND", "Unknown QR entity.")
+        revision = self.engine.version(entity) if entity in self.engine.matches else 0
+        cache_key = (entity, revision, config.PUBLIC_BASE, config.DAY2_SALT)
+        if inspect and cache_key in self.inspect_cache:
+            return dict(self.inspect_cache[cache_key])
+        if not inspect:
+            self.inspect_cache.clear()
         kind = "match" if entity in self.engine.matches else ("player" if entity in auth.PLAYERS else
                 ("club" if entity in auth.CLUBS else "costream"))
         status = "active"
@@ -56,10 +64,13 @@ class QRGuest:
                 self.db.put("qr", entity, record)
         short = f"{config.PUBLIC_BASE}/q/{record['code']}"
         payload = {"entity_id": entity, "short_url": short, "target_route": route}
-        return {**payload, "entity_type": kind, "entity_status": status,
+        result = {**payload, "entity_type": kind, "entity_status": status,
                 "deep_link_uri": f"nascon://entity/{entity}", "scan_count": record["scan_count"],
                 "export_formats": {fmt: f"{config.PUBLIC_BASE}/audit/v1/qr/{entity}/export.{fmt}" for fmt in ("svg", "png", "pdf")},
                 "signature": signature(entity, payload)}
+        if inspect:
+            self.inspect_cache[cache_key] = result
+        return result
 
     def export(self, entity, fmt):
         metadata = self.metadata(entity, inspect=True)
@@ -115,7 +126,7 @@ class QRGuest:
                     raise APIError(409, "GUEST_TOKEN_ALREADY_MERGED", "This guest token has already been merged.")
                 return prior["response"]
             guest = self.db.get("guest", token)
-            if guest and not guest.get("valid", False):
+            if guest and (not guest.get("valid", False) or guest.get("expires", float("inf")) < time.time()):
                 raise APIError(403, "GUEST_WRITE_FORBIDDEN", "Guest token is invalid.")
             quantities = Counter(self.db.get("cart", uid, {}))
             for item in cart:

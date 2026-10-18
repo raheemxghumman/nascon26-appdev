@@ -36,7 +36,8 @@ let scoreSocket,chatSocket;
 function connectScore(){if(!isMatch)return;scoreSocket=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/matches/${encodeURIComponent(entity)}`);scoreSocket.onmessage=event=>{const s=JSON.parse(event.data);$('[data-testid="live-score-banner"]').textContent=`${s.home.score} - ${s.away.score}`;$('#connection').textContent='Live updates';$('#match-status').textContent=s.status.replaceAll('_',' ').toUpperCase();};scoreSocket.onclose=()=>{$('#connection').textContent='Reconnecting';setTimeout(connectScore,1000);};}
 let seen=new Set();
 function connectChat(){chatSocket=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/chat/${encodeURIComponent(room)}`);chatSocket.onmessage=event=>{const m=JSON.parse(event.data);if(seen.has(m.sequence))return;seen.add(m.sequence);const p=document.createElement('p');const name=document.createElement('strong');name.textContent=m.sender+': ';p.append(name,document.createTextNode(m.text));$('[data-testid="chat-message-list"]').append(p);p.scrollIntoView({block:'nearest'});};chatSocket.onclose=()=>setTimeout(connectChat,1000);}
-async function loadMedia(){try{const data=await api(`/api/v1/live/${encodeURIComponent(entity)}`);if(data.path){const url=new URL(location.href);url.port='8889';url.pathname='/'+data.path;url.search='?autoplay=true&muted=true';$('#webrtc').src=url.href;$('#webrtc').hidden=false;$('#video-empty').hidden=true;}}catch{} }
+let activeMediaPath=null;
+async function loadMedia(){try{const data=await api(`/api/v1/live/${encodeURIComponent(entity)}`);if(data.path&&data.path!==activeMediaPath){activeMediaPath=data.path;const url=new URL(location.href);url.port='8889';url.pathname='/'+data.path;url.search='?autoplay=true&muted=true';$('#webrtc').src=url.href;$('#webrtc').hidden=false;$('#video-empty').hidden=true;}else if(!data.path&&activeMediaPath){activeMediaPath=null;$('#webrtc').src='about:blank';$('#webrtc').hidden=true;$('#video-empty').hidden=false;}}catch{} }
 async function start(){
   await ensureGuest();
   if(isCreator){$('#creator-panel').hidden=false;$('#title').textContent='Your club. Your broadcast.';$('#subtitle').textContent='Go live from your camera, or connect an external encoder.';$('#teams').textContent='Creator studio';}
@@ -45,6 +46,6 @@ async function start(){
   else{$('#title').textContent=entity.replaceAll('-',' ');$('#teams').textContent='Club community';}
   $('#app-link').href=`nascon://${isCostream?'stream':'entity'}/${encodeURIComponent(entity)}`;
   if(!isCreator){$('#qr').src=`/audit/v1/qr/${encodeURIComponent(entity)}/export.png`;for(const fmt of ['svg','png','pdf'])$('#qr-'+fmt).href=`/audit/v1/qr/${encodeURIComponent(entity)}/export.${fmt}`;}
-  connectScore();connectChat();await loadMedia();
+  connectScore();connectChat();await loadMedia();setInterval(loadMedia,2000);
 }
 start().catch(showError);

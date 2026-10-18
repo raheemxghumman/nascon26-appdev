@@ -48,4 +48,11 @@ class Observability:
                 state["kicked"] = ["anonymous" if x == uid else x for x in state["kicked"]]
                 state["muted"] = ["anonymous" if x == uid else x for x in state["muted"]]
                 self.db.put("chat", room, state)
+                for mid, message in self.db.all("chat_message:" + room).items():
+                    if message["sender"] == uid:
+                        message["sender"], message["text"] = "anonymous", "[removed]"
+                        self.db.put("chat_message:" + room, mid, message)
+                for mid, decision in self.db.all("chat_decision:" + room).items():
+                    if decision.get("message", {}) and decision["message"].get("sender") == uid:
+                        self.db.delete("chat_decision:" + room, mid)
         return {"user_id": uid, "status": "anonymized", "pii_retained": False, "tokens_wiped": True}

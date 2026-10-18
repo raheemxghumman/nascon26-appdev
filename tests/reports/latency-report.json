@@ -1,0 +1,6 @@
+{
+  "clients": 25,
+  "p95_ms": 78.0,
+  "max_ms": 78.0,
+  "passed": true
+}

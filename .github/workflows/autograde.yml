@@ -22,7 +22,7 @@ jobs:
       - name: Verify locked Day 1 ancestry
         run: git merge-base --is-ancestor "${{ vars.DAY1_BASE_SHA || 'ef195aa' }}" HEAD
       - name: Install test dependencies
-        run: pip install -r backend/requirements.txt pytest pytest-cov pytest-xdist selenium httpx
+        run: pip install -r backend/requirements.txt -r backend/requirements-media.txt pytest pytest-cov pytest-xdist selenium httpx
       - name: Backend regression and contract tests
         run: python -m pytest tests/test_*.py --junitxml=tests/reports/backend-report.xml --cov=backend/app --cov-report=json:tests/reports/coverage.json
       - name: Build and start complete stack
@@ -33,6 +33,8 @@ jobs:
           curl --fail -X POST http://localhost:8080/audit/v1/reset -H 'Content-Type: application/json' -d '{}'
       - name: Parallel guest browser tests
         run: python -m pytest -n 3 tests/selenium/ --junitxml=tests/reports/selenium-report.xml
+      - name: Score delivery to 25 concurrent viewers
+        run: python tests/latency_probe.py
       - name: Required 550-user k6 load test
         run: docker run --rm --network host -v "$PWD:/work" -w /work grafana/k6:0.54.0 run --summary-export=tests/reports/k6-summary.json tests/k6_load.js
       - name: Collect logs
