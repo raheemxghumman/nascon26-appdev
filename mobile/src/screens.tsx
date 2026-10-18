@@ -661,7 +661,7 @@ export function ScoringScreen() {
   const [match, setMatch] = useState(params.match ?? ""),
     [version, setVersion] = useState(params.version ?? "0"),
     [team, setTeam] = useState(params.home ?? ""),
-    [event, setEvent] = useState(""),
+    [event, setEvent] = useState("goal"),
     [compensates, setCompensates] = useState(""),
     [reason, setReason] = useState(""),
     [error, setError] = useState(""),
@@ -946,6 +946,7 @@ export function CheckoutScreen() {
       if (!result.receipt?.pdf_base64)
         throw new Error("The server did not return the required PDF receipt.");
       setReceipt(result);
+      attempt.current = null;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
