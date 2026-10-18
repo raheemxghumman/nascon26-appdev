@@ -22,7 +22,7 @@ jobs:
       - name: Verify locked Day 1 ancestry
         run: git merge-base --is-ancestor "${{ vars.DAY1_BASE_SHA || 'ef195aa' }}" HEAD
       - name: Install test dependencies
-        run: pip install -r backend/requirements.txt -r backend/requirements-media.txt pytest pytest-cov pytest-xdist selenium httpx
+        run: pip install -r backend/requirements.txt pytest pytest-cov pytest-xdist selenium httpx
       - name: Backend regression and contract tests
         run: python -m pytest tests/test_*.py --junitxml=tests/reports/backend-report.xml --cov=backend/app --cov-report=json:tests/reports/coverage.json
       - name: Build and start complete stack

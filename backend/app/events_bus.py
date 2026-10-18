@@ -9,6 +9,7 @@ from . import config
 
 _client = None
 _lock = threading.Lock()
+durable_sink = None
 
 
 def _redis():
@@ -20,6 +21,8 @@ def _redis():
 
 
 def publish(event: dict) -> None:
+    if durable_sink is not None:
+        durable_sink(event)
     try:
         _redis().xadd("domain-events", {"event": json.dumps(event)}, maxlen=10000, approximate=True)
     except Exception:

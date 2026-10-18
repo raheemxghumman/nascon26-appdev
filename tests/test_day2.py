@@ -145,6 +145,44 @@ def test_live_web_and_socket():
         assert ws.receive_json()["away"]["score"]==1
 
 
+def test_live_player_requires_actual_publisher(monkeypatch):
+    from app import day2
+    main.DAY2.streaming.key({"action":"generate","player_id":"player-alpha-1","stream_key_override":"ready-test"})
+    class Result:
+        def raise_for_status(self): pass
+        def json(self): return {"items":items}
+    items=[]
+    monkeypatch.setattr(day2.httpx,"get",lambda *args,**kwargs:Result())
+    assert client.get("/api/v1/live/match-m1").json()=={"path":None}
+    items.append({"name":"live/ready-test","ready":False})
+    assert client.get("/api/v1/live/match-m1").json()=={"path":None}
+    items[0]["ready"]=True
+    assert client.get("/api/v1/live/match-m1").json()=={"path":"live/ready-test"}
+    assert client.get("/api/v1/live/cs-session-missing").json()=={"path":None}
+    items.clear()
+    assert client.get("/api/v1/live/match-m1").json()=={"path":None}
+
+
+def test_signed_invitation_host_controls_and_notification_delivery():
+    host = main.auth.issue_token(main.auth.USERS["player@nascon.test"])
+    outsider = main.auth.issue_token({"user_id":"second","role":"player","player_id":"player-beta-2"})
+    headers={"Authorization":"Bearer "+host}
+    main.DAY2.costream.session(session_body(participants=["player-alpha-1"],layout="grid_4"))
+    root="/api/v1/costream/cs-session-101"
+    assert client.post(root+"/control",json={"action":"invite","player_id":"player-beta-2"},headers={"Authorization":"Bearer "+outsider}).status_code==403
+    with client.websocket_connect("/ws/notifications") as ws:
+        ws.send_json({"token":outsider})
+        invitation=client.post(root+"/control",json={"action":"invite","player_id":"player-beta-2"},headers=headers).json()
+        event=ws.receive_json()
+        assert event["type"]=="costream.invite" and event["invite_token"]==invitation["invite_token"]
+    foreign=client.post(root+"/join",json=invitation,headers=headers)
+    assert foreign.status_code==403
+    joined=client.post(root+"/join",json=invitation,headers={"Authorization":"Bearer "+outsider})
+    assert joined.status_code==200 and joined.json()["active_participants"]==["player-alpha-1","player-beta-2"]
+    muted=client.post(root+"/control",json={"action":"mute","player_id":"player-beta-2"},headers=headers)
+    assert muted.json()["muted"]==["player-beta-2"]
+
+
 def test_media_auth_default_keys_and_eviction_requests(monkeypatch):
     from app import streaming
     from app.errors import APIError

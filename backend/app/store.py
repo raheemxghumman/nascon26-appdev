@@ -120,14 +120,14 @@ class Store:
                 for it in body["items"]:
                     self.stock[it["variant_id"]] += it["quantity"]
                     self.reserved[it["variant_id"]] -= it["quantity"]
-            self.publish({"type": "order.payment_failed", "order_id": order_id})
+            self.publish({"type": "order.payment_failed", "order_id": order_id, "recipient": body["customer_id"]})
             raise
         with self.lock:
             for it in body["items"]:
                 self.reserved[it["variant_id"]] -= it["quantity"]
             response = self._receipt(body, n)
             self.orders[order_id] = {"request": copy.deepcopy(body), "response": response, "status": "paid"}
-        self.publish({"type": "order.status_changed", "order_id": order_id, "from": "pending", "to": "paid"})
+        self.publish({"type": "order.status_changed", "order_id": order_id, "from": "pending", "to": "paid", "recipient": body["customer_id"]})
         return 201, copy.deepcopy(response)
 
     def _receipt(self, body, n) -> dict:

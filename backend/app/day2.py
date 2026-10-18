@@ -1,7 +1,10 @@
 """Phase II integration; keeps the Phase I contract and history intact."""
 import asyncio
+import base64
+import hmac
 import json
 import secrets
+import time
 from pathlib import Path
 import httpx
 from fastapi import Request, WebSocket, WebSocketDisconnect
@@ -26,6 +29,15 @@ class PhaseII:
         self.moderation = Moderation(self.db)
         self.observability = Observability(self.db)
         self.seed()
+        core.events_bus.durable_sink = self.enqueue
+
+    def enqueue(self, event):
+        import hashlib
+        raw = json.dumps(event, sort_keys=True, separators=(",", ":"))
+        eid = "notification-" + hashlib.sha256(raw.encode()).hexdigest()[:24]
+        with self.db.transaction():
+            if self.db.get("notification", eid) is None:
+                self.db.put("notification", eid, {"event_id": eid, "created": time.time(), **event})
 
     def seed(self):
         c = self.core
@@ -57,6 +69,73 @@ def install(core):
     async def session(request: Request):
         status, result = d.costream.session(await core.read_json(request))
         return core.respond(status, result)
+
+    @app.post("/api/v1/costream/{sid}/control")
+    async def session_control(sid: str, request: Request):
+        claims = auth.verify_token(request.headers.get("authorization"))
+        body = await core.read_json(request)
+        if not isinstance(body, dict) or body.get("action") not in ("invite", "mute", "unmute", "kick", "spotlight") or not isinstance(body.get("player_id"), str):
+            raise validation_error(["action", "player_id"])
+        state = d.db.get("session", sid)
+        if not state:
+            raise APIError(404, "STREAM_NOT_FOUND", "Unknown co-stream.")
+        if claims.get("player_id") != state["active_host"] and claims["role"] != "super_admin":
+            raise APIError(403, "FORBIDDEN", "Only the active host may moderate this broadcast.")
+        pid, action = body["player_id"], body["action"]
+        if pid not in auth.PLAYERS:
+            raise APIError(404, "PLAYER_NOT_FOUND", "Unknown player.")
+        if action == "invite":
+            from .streaming import signature
+            payload = {"session_id": sid, "player_id": pid, "expires": int(time.time()) + 3600, "nonce": secrets.token_hex(8)}
+            data = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()
+            token = data + "." + signature(sid, payload)
+            d.db.put("invite", token, payload)
+            core.events_bus.publish({"type": "costream.invite", "recipient": pid, "session_id": sid, "invite_token": token})
+            return {"invite_token": token, "expires_in": 3600}
+        if pid not in state["active_participants"]:
+            raise validation_error(["player_id"])
+        if action == "kick":
+            return d.costream.drop(sid, pid)
+        with d.db.transaction():
+            controls = d.db.get("session_controls", sid, {"muted": [], "spotlight": None})
+            if action == "mute" and pid not in controls["muted"]:
+                controls["muted"].append(pid)
+            elif action == "unmute":
+                controls["muted"] = [p for p in controls["muted"] if p != pid]
+            elif action == "spotlight":
+                controls["spotlight"] = pid
+            d.db.put("session_controls", sid, controls)
+        return {"session_id": sid, **controls}
+
+    @app.post("/api/v1/costream/{sid}/join")
+    async def broadcaster_join(sid: str, request: Request):
+        from .streaming import signature
+        claims = auth.verify_token(request.headers.get("authorization"))
+        body = await core.read_json(request)
+        if not isinstance(body, dict) or not isinstance(body.get("invite_token"), str):
+            raise validation_error(["invite_token"])
+        token = body["invite_token"]
+        invitation = d.db.get("invite", token)
+        if (not invitation or invitation["expires"] < time.time() or invitation["session_id"] != sid
+                or invitation["player_id"] != claims.get("player_id")
+                or not hmac.compare_digest(token.rsplit(".", 1)[-1], signature(sid, invitation))):
+            raise APIError(403, "FORBIDDEN", "Invalid, expired or foreign invitation.")
+        with d.db.transaction():
+            state = d.db.get("session", sid)
+            if not state or state["status"] != "active":
+                raise APIError(404, "STREAM_NOT_FOUND", "Broadcast is not active.")
+            active = state["active_participants"]
+            pid = claims["player_id"]
+            if pid in active:
+                return state
+            if len(active) >= 4:
+                raise APIError(409, "COSTREAM_SESSION_FULL", "Maximum four broadcasters.")
+            if state["layout"] == "solo" or (state["layout"] == "grid_2" and len(active) >= 2):
+                raise APIError(400, "UNSUPPORTED_LAYOUT", "Layout cannot fit another broadcaster.")
+            active.append(pid)
+            result = d.costream._response(sid, active, state["layout"], False, state["active_host"])
+            d.db.put("session", sid, result)
+            return result
 
     @app.get("/audit/v1/qr/{entity_id}/export.{fmt}")
     def qr_export(entity_id: str, fmt: str):
@@ -102,31 +181,28 @@ def install(core):
     def compositor_state():
         sessions = []
         for sid, state in d.db.all("session").items():
+            controls = d.db.get("session_controls", sid, {"muted": [], "spotlight": None})
             inputs = []
             for pid in state["active_participants"]:
                 key = d.db.get("creator", pid)
                 if key and key["status"] == "active":
-                    inputs.append({"path": "live/" + key["stream_key"], "player_id": pid})
-            sessions.append({**state, "inputs": inputs})
+                    inputs.append({"path": "live/" + key["stream_key"], "player_id": pid, "muted": pid in controls["muted"]})
+            if controls["spotlight"]:
+                inputs.sort(key=lambda item: item["player_id"] != controls["spotlight"])
+            sessions.append({**state, "layout": "spotlight" if controls["spotlight"] else state["layout"], "inputs": inputs})
         return sessions
 
     @app.post("/internal/media/recording")
     async def recording(request: Request):
-        import os
-        from minio import Minio
+        from . import object_storage
         body = await core.read_json(request)
         if not isinstance(body, dict) or not isinstance(body.get("path"), str) or not isinstance(body.get("stream"), str):
             raise validation_error(["path", "stream"])
         path = Path(body["path"]).resolve()
         if not path.is_relative_to(Path("/recordings")) or not path.is_file():
             raise validation_error(["path"])
-        storage = Minio(os.environ.get("MINIO_ENDPOINT", "minio:9000"),
-                        access_key=os.environ.get("MINIO_ACCESS_KEY", "minioadmin"),
-                        secret_key=os.environ.get("MINIO_SECRET_KEY", "minioadmin"), secure=False)
-        if not storage.bucket_exists("recordings"):
-            storage.make_bucket("recordings")
         object_name = str(path.relative_to("/recordings"))
-        await asyncio.to_thread(storage.fput_object, "recordings", object_name, str(path), content_type="video/mp4")
+        await asyncio.to_thread(object_storage.upload, object_name, path.read_bytes())
         record = {"object": object_name, "stream": body["stream"], "playback_url": "/api/v1/vod/" + object_name}
         d.db.put("vod", object_name, record)
         key = d.db.get("key", body["stream"].removeprefix("live/"))
@@ -136,21 +212,10 @@ def install(core):
 
     @app.get("/api/v1/vod/{name:path}")
     def vod(name: str):
-        import os
-        from minio import Minio
+        from . import object_storage
         if d.db.get("vod", name) is None:
             raise APIError(404, "STREAM_NOT_FOUND", "Recording not found.")
-        storage = Minio(os.environ.get("MINIO_ENDPOINT", "minio:9000"),
-                        access_key=os.environ.get("MINIO_ACCESS_KEY", "minioadmin"),
-                        secret_key=os.environ.get("MINIO_SECRET_KEY", "minioadmin"), secure=False)
-        response = storage.get_object("recordings", name)
-        def chunks():
-            try:
-                yield from response.stream(64 * 1024)
-            finally:
-                response.close()
-                response.release_conn()
-        return StreamingResponse(chunks(), media_type="video/mp4")
+        return Response(object_storage.download(name), media_type="video/mp4")
 
     @app.post("/api/v1/guest/session")
     def guest_session():
@@ -172,12 +237,20 @@ def install(core):
 
     @app.get("/api/v1/live/{entity}")
     def live_media(entity: str):
+        # A valid key authorizes ingest; only a ready media path proves a broadcast exists.
+        try:
+            response = httpx.get(f"{config.MEDIA_API}/v3/paths/list", timeout=1)
+            response.raise_for_status()
+            ready = {item["name"] for item in response.json().get("items", []) if item.get("ready")}
+        except (httpx.HTTPError, ValueError, KeyError):
+            return {"path": None}
         if entity.startswith("cs-session-"):
             session = d.db.get("session", entity)
-            if session and session["status"] == "active":
+            if session and session["status"] == "active" and f"costream/{entity}" in ready:
                 return {"path": f"costream/{entity}"}
+            return {"path": None}
         for record in d.db.all("creator").values():
-            if record["status"] == "active" and (not entity.startswith("player-") or entity == record["player_id"]):
+            if record["status"] == "active" and "live/" + record["stream_key"] in ready and (not entity.startswith("player-") or entity == record["player_id"]):
                 return {"path": "live/" + record["stream_key"]}
         return {"path": None}
 
@@ -197,6 +270,25 @@ def install(core):
                 response = await client.post(f"http://media:8889/{path}/whip", content=raw,
                                              headers={"Content-Type": "application/sdp"})
             return Response(response.content, status_code=response.status_code, media_type="application/sdp")
+        except httpx.HTTPError:
+            raise APIError(503, "UNAVAILABLE", "Media server is unavailable.")
+
+    @app.api_route("/media/read/{path:path}", methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"])
+    async def media_reader_proxy(path: str, request: Request):
+        """Same-origin WHEP player works from Grid nodes, the phone and a LAN browser."""
+        raw = await request.body()
+        if len(raw) > config.MAX_BODY_BYTES:
+            raise APIError(413, "PAYLOAD_TOO_LARGE", "Request body exceeds 1 MB.")
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                response = await client.request(request.method, f"http://media:8889/{path}",
+                    params=request.query_params, content=raw,
+                    headers={key: request.headers[key] for key in ("content-type", "if-match") if key in request.headers})
+            headers = {key: response.headers[key] for key in ("content-type", "accept-patch", "etag", "link") if key in response.headers}
+            if "location" in response.headers:
+                from urllib.parse import urlparse
+                headers["location"] = "/media/read" + urlparse(response.headers["location"]).path
+            return Response(response.content, status_code=response.status_code, headers=headers)
         except httpx.HTTPError:
             raise APIError(503, "UNAVAILABLE", "Media server is unavailable.")
 
@@ -302,6 +394,53 @@ def install(core):
                         sequence = message["sequence"]
                 try:
                     await asyncio.wait_for(ws.receive_text(), timeout=0.05)
+                except asyncio.TimeoutError:
+                    pass
+        except (WebSocketDisconnect, RuntimeError):
+            pass
+        finally:
+            d.observability.connections -= 1
+
+    @app.websocket("/ws/notifications")
+    async def notifications(ws: WebSocket):
+        await ws.accept()
+        connected_at = time.time()
+        try:
+            hello = await asyncio.wait_for(ws.receive_json(), timeout=3)
+            claims = auth.verify_token("Bearer " + hello.get("token", ""))
+        except (APIError, ValueError, TypeError, AttributeError, asyncio.TimeoutError, WebSocketDisconnect):
+            await ws.close(code=1008)
+            return
+        uid = claims.get("player_id", claims["user_id"])
+        last = d.db.get("notification", hello.get("last_event_id", ""))
+        cutoff = last["created"] if last else connected_at
+        d.observability.connections += 1
+        try:
+            while True:
+                if d.db.get("erased", uid):
+                    await ws.close(code=1008)
+                    return
+                for event in sorted(d.db.all("notification").values(), key=lambda x:x["created"]):
+                    if event["created"] < cutoff or event.get("recipient") not in (None, uid, claims["user_id"]):
+                        continue
+                    eid = event["event_id"]
+                    if d.db.get("delivered:" + uid, eid):
+                        continue
+                    for attempt in range(3):
+                        try:
+                            await ws.send_json(event)
+                            d.db.put("delivered:" + uid, eid, True)
+                            d.db.delete("dlq", "notify:" + eid + ":" + uid)
+                            break
+                        except (WebSocketDisconnect, RuntimeError, OSError):
+                            if attempt < 2:
+                                await asyncio.sleep(.02 * 2 ** attempt)
+                    else:
+                        d.db.put("dlq", "notify:" + eid + ":" + uid,
+                                 {**event, "recipient": uid, "attempts": 3, "status": "undelivered"})
+                        return
+                try:
+                    await asyncio.wait_for(ws.receive_text(), timeout=.1)
                 except asyncio.TimeoutError:
                     pass
         except (WebSocketDisconnect, RuntimeError):

@@ -25,13 +25,13 @@ Continue from locked Day 1 commit `ef195aa`. No history was rewritten.
 
 ## Still needs verification/work
 
-- New release APK build, installation, real deep-link Appium run and cross-surface report.
-- Real camera/RTMP publish and playback, key eviction timing and glass-to-glass latency.
+- Release APK built and installed; three real Appium tests passed (both native deep links plus browser-to-phone chat). Latest APK includes connection retry and foreground notifications.
+- Real WHIP publication and WHEP playback passed with Chrome's synthetic 640x360 camera/microphone fixture; real media packets and decoded video verified. Physical phone camera, RTMP, key eviction timing and glass-to-glass latency still need checks.
 - FFmpeg composition and abrupt host handoff while actual streams are active.
-- Upload completed real recording segments to MinIO and verify indexed playback.
+- Completed real recording segments uploaded to MinIO and indexed; full playback retrieval check pending.
 - Recheck the optimized load profile on the independent clean GitHub runner.
 - Selenium images use the previously required/cached 4.24.0; Day 2 example shows 4.25.0. Organizer clarification pending.
-- Full background native push, signed co-stream invitations and host media controls are not complete.
+- Signed co-stream invitations, host control endpoints and foreground WebSocket notifications implemented and tested. UI controls and full background native push still need work.
 - Day 1 state remains in memory. Day 2 records persist in `/data/day2.sqlite3`.
 
 ## Local commands
@@ -51,3 +51,11 @@ Grid: `python -m pytest -n 3 tests/selenium/ --junitxml=tests/reports/selenium-r
 Appium: `python -m pytest tests/appium/ --junitxml=tests/reports/appium-report.xml`
 
 Build log: `E:\NASCON-Preparation\logs\day2-android-build-retry.log`.
+
+## Push record
+
+- `3e9a651`: foundation, confirmed pushed around 11:10 PKT.
+- `d723cb4`: load optimizations and coverage, confirmed pushed around 11:31 PKT.
+- Next checkpoint includes the release APK, real media probe, recording storage client and stream readiness fix. Do not count it as pushed until origin confirms.
+
+Latest local checks: 141 backend tests passed before the additional signed invitation/notification test; all 23 Day 2 tests then passed. Six Grid tests passed again. Venue-secret scan passed against tracked source and every unpacked release APK entry.

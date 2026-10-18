@@ -49,14 +49,16 @@ export function LiveSurface({ id, creator = false }: { id: string; creator?: boo
         {co ? <Button title={joined ? "Joined co-stream" : "Join co-stream"} onPress={() => setJoined(true)} /> : null}
         {lastMessage ? <Text accessibilityLabel="Latest live chat" accessibilityLiveRegion="polite">{lastMessage}</Text> : null}
       </View>
-      {error ? <Text style={s.error}>{error}</Text> : null}
+      {error ? <View style={{padding:12,gap:8}}><Text style={s.error}>Cannot reach the team server. Check the USB or hotspot connection.</Text><Button title="Retry connection" onPress={() => {setError("");web.current?.reload();}} /></View> : null}
       <WebView ref={web} source={{ uri: target }} style={s.web}
         injectedJavaScriptBeforeContentLoaded={injected}
         javaScriptEnabled domStorageEnabled allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false} mediaCapturePermissionGrantType="grantIfSameHostElseDeny"
         mixedContentMode="compatibility" startInLoadingState
         renderLoading={() => <ActivityIndicator color={color.green} />}
+        renderError={() => <View style={{padding:20}}><Text>The connection is unavailable. Use Retry connection above.</Text></View>}
         onError={(event) => setError(event.nativeEvent.description)}
+        onLoadEnd={() => {if(app.session)web.current?.injectJavaScript(injected + " window.dispatchEvent(new Event('league-native-session')); true;");}}
         onShouldStartLoadWithRequest={(request) => !request.url.startsWith("nascon:")}
       />
     </SafeAreaView>

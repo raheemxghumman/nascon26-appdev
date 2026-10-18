@@ -1,0 +1,15 @@
+{
+  "source": "Chrome synthetic camera and microphone; real WebRTC packets",
+  "publisher_status": "You are live. Camera and microphone are broadcasting.",
+  "peer_state": "connected",
+  "live_lookup": {
+    "path": "live/sk_live_6b73bba4a67d4f18"
+  },
+  "playback": {
+    "height": 360,
+    "readyState": 4,
+    "time": 0.434,
+    "width": 640
+  },
+  "passed": true
+}

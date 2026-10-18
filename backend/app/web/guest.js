@@ -19,6 +19,7 @@ async function api(url, body, token) {
 }
 window.leagueAPI = api;
 window.leagueAccount = () => account;
+window.addEventListener('league-native-session',()=>{account=JSON.parse(sessionStorage.getItem('account')||'null');});
 function updateCart(){ const count = cart.reduce((n,i)=>n+i.quantity,0); $('[data-testid="guest-cart-count"]').textContent=count; $('#bag-detail').textContent=count?`${count} × Alpha Home Jersey · Size L`:'Pick something from the club shop.'; sessionStorage.setItem('guestCart',JSON.stringify(cart)); }
 updateCart();
 async function ensureGuest(){if(!guestToken){const data=await api('/api/v1/guest/session',{});guestToken=data.guest_token;sessionStorage.setItem('guestToken',guestToken);}return guestToken;}
@@ -37,7 +38,7 @@ function connectScore(){if(!isMatch)return;scoreSocket=new WebSocket(`${location
 let seen=new Set();
 function connectChat(){chatSocket=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/chat/${encodeURIComponent(room)}`);chatSocket.onmessage=event=>{const m=JSON.parse(event.data);if(seen.has(m.sequence))return;seen.add(m.sequence);const p=document.createElement('p');const name=document.createElement('strong');name.textContent=m.sender+': ';p.append(name,document.createTextNode(m.text));$('[data-testid="chat-message-list"]').append(p);p.scrollIntoView({block:'nearest'});};chatSocket.onclose=()=>setTimeout(connectChat,1000);}
 let activeMediaPath=null;
-async function loadMedia(){try{const data=await api(`/api/v1/live/${encodeURIComponent(entity)}`);if(data.path&&data.path!==activeMediaPath){activeMediaPath=data.path;const url=new URL(location.href);url.port='8889';url.pathname='/'+data.path;url.search='?autoplay=true&muted=true';$('#webrtc').src=url.href;$('#webrtc').hidden=false;$('#video-empty').hidden=true;}else if(!data.path&&activeMediaPath){activeMediaPath=null;$('#webrtc').src='about:blank';$('#webrtc').hidden=true;$('#video-empty').hidden=false;}}catch{} }
+async function loadMedia(){try{const data=await api(`/api/v1/live/${encodeURIComponent(entity)}`);if(data.path&&data.path!==activeMediaPath){activeMediaPath=data.path;$('#webrtc').src=`/media/read/${data.path}?autoplay=true&muted=true`;$('#webrtc').hidden=false;$('#video-empty').hidden=true;}else if(!data.path){activeMediaPath=null;$('#webrtc').src='about:blank';$('#webrtc').hidden=true;$('#video-empty').hidden=false;}}catch{activeMediaPath=null;$('#webrtc').src='about:blank';$('#webrtc').hidden=true;$('#video-empty').hidden=false;} }
 async function start(){
   await ensureGuest();
   if(isCreator){$('#creator-panel').hidden=false;$('#title').textContent='Your club. Your broadcast.';$('#subtitle').textContent='Go live from your camera, or connect an external encoder.';$('#teams').textContent='Creator studio';}
