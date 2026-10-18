@@ -613,21 +613,38 @@ export function SettingsScreen() {
           placeholder="http://192.168.43.10:8080"
         />
         <Text style={s.small}>
-          Physical phone: laptop LAN IP. Android emulator: http://10.0.2.2:8080.
-          Changing servers signs you out; old queued actions stay saved under
-          their original account/server.
+          Phone on USB (adb reverse): http://localhost:8080. Phone on the
+          hotspot: the laptop LAN IP. Android emulator: http://10.0.2.2:8080.
+          Changing servers signs you out; queued actions stay saved.
         </Text>
-        <Field label="League ID" value={league} onChangeText={setLeague} />
-        <Field label="Club ID" value={club} onChangeText={setClub} />
+        <Field
+          label="League ID (not your email)"
+          value={league}
+          onChangeText={setLeague}
+          placeholder="league-alpha-1"
+        />
+        <Field
+          label="Club ID (not your password)"
+          value={club}
+          onChangeText={setClub}
+          placeholder="club-alpha-1"
+        />
         <ErrorLine error={error} />
         <Button
           title="Save connection"
-          onPress={() =>
+          onPress={() => {
+            if (/[@\s]/.test(league) || /[@\s]/.test(club)) {
+              setError(
+                "League and club are IDs like league-alpha-1 and club-alpha-1. Sign in with your email on the login screen.",
+              );
+              return;
+            }
+            setError("");
             void a
               .configure({ server, league, club })
               .then(() => Alert.alert("Saved", "Connection settings updated."))
-              .catch((e) => setError(e.message))
-          }
+              .catch((e) => setError(e.message));
+          }}
         />
       </View>
       <Notice text="All mobile data comes from your team's self-hosted backend. Keep both devices on the same hotspot or router." />
