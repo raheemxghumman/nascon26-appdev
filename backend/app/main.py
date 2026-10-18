@@ -51,6 +51,7 @@ def reset_state(body: dict) -> dict:
         STATE["seed"] = seed
         STATE["synced"] = set()
         _seed_demo_league()
+        _seed_demo_roster()
         if "DAY2" in globals():
             DAY2.reset()
         STATE["seeded"] = True
@@ -59,6 +60,24 @@ def reset_state(body: dict) -> dict:
         current.update({k: STORE.stock[k] for k in stock})
     return {"status": "reset_complete", "seed": seed, "sports": [s["sport_id"] for s in BASELINE_SPORTS],
             "tenants": list(auth.TENANTS), "stock": current}
+
+
+def _seed_demo_roster():
+    """Demo squads for the mobile roster screen (league-alpha-1); creates no audit entries."""
+    window = {"open": "2026-10-01", "close": "2026-10-31"}
+    squads = [{"squad_id": cid, "club_id": cid, "tenant_id": "tenant-alpha", "name": name}
+              for cid, name in (("club-alpha-1", "Alpha United"), ("club-alpha-2", "Alpha Rovers"))]
+    players = [{"player_id": pid, "name": name, "position": pos, "squad_id": squad, "role": role}
+               for pid, name, pos, squad, role in (
+                   ("ali", "Ali Khan", "fw", "club-alpha-1", "starter"),
+                   ("bilal", "Bilal Ahmed", "mf", "club-alpha-1", "starter"),
+                   ("hamza", "Hamza Raza", "df", "club-alpha-1", "substitute"),
+                   ("usman", "Usman Tariq", "gk", "club-alpha-1", "captain"),
+                   ("zain", "Zain Malik", "fw", "club-alpha-2", "starter"),
+                   ("omar", "Omar Farooq", "mf", "club-alpha-2", "starter"))]
+    ROSTER.setup({"league": {"league_id": "league-alpha-1", "tenant_id": "tenant-alpha", "sport_id": "football",
+                             "transfer_window": window, "max_squad_size": 25, "required_positions": {}},
+                  "squads": squads, "players": players, "matches_in_progress": []}, SPORTS)
 
 
 def _seed_demo_league():
