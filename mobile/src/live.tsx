@@ -45,7 +45,7 @@ export function LiveSurface({ id, creator = false }: { id: string; creator?: boo
         <Text style={s.brand}>LEAGUEDESK / LIVE</Text>
         <Text accessibilityRole="header" style={s.heading}>{creator ? "Creator studio" : co ? "Co-stream live" : "Match live"}</Text>
         <Text accessibilityLabel="Live match score" accessibilityLiveRegion="polite" style={s.score}>{score || id}</Text>
-        <View style={s.actions}><Button title="‹ Back" secondary onPress={() => router.canGoBack() ? router.back() : router.replace("/")} /><Button title="Scan QR" onPress={() => router.push("/scan")} /><Button title="Settings" secondary onPress={() => router.push("/settings")} /></View>
+        <View style={s.actions}><Button title="‹ Back" secondary onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)")} /><Button title="Scan QR" onPress={() => router.push("/scan")} /><Button title="Settings" secondary onPress={() => router.push("/settings")} /></View>
         {co ? <Button title={joined ? "Joined co-stream" : "Join co-stream"} onPress={() => setJoined(true)} /> : null}
         {lastMessage ? <Text accessibilityLabel="Latest live chat" accessibilityLiveRegion="polite">{lastMessage}</Text> : null}
       </View>

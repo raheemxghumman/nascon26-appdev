@@ -193,7 +193,7 @@ export function HomeScreen() {
       <Button
         title={app.preview ? "Exit preview" : "Sign out"}
         secondary
-        onPress={() => void app.signOut().then(() => router.replace("/"))}
+        onPress={() => void app.signOut().then(() => router.replace("/login"))}
       />
     </Page>
   );
