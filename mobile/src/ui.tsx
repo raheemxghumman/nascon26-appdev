@@ -266,6 +266,11 @@ export function Page({
           </Text>
         </View>
       )}
+      <View style={{flexDirection:"row",paddingHorizontal:16,paddingTop:10,gap:10}}>
+        <Button title="Watch live" secondary onPress={() => router.push("/entity/match-m1")} />
+        <Button title="Scan QR" secondary onPress={() => router.push("/scan")} />
+        <Button title="Broadcast" secondary onPress={() => router.push("/broadcast")} />
+      </View>
       <ScrollView
         contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"

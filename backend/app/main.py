@@ -51,6 +51,8 @@ def reset_state(body: dict) -> dict:
         STATE["seed"] = seed
         STATE["synced"] = set()
         _seed_demo_league()
+        if "DAY2" in globals():
+            DAY2.reset()
         STATE["seeded"] = True
         current = {"var-jersey-001-M": STORE.stock["var-jersey-001-M"],
                    "var-jersey-001-L": STORE.stock["var-jersey-001-L"]}
@@ -217,6 +219,13 @@ reset_state({})
 # ---- middleware ----------------------------------------------------------
 @app.middleware("http")
 async def guards(request: Request, call_next):
+    from .qr_guest import forbid_guest
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.url.path not in (
+            "/api/v1/auth/login", "/api/v1/guest/session", "/audit/v1/guest/cart-merge", "/api/v1/guest/cart-merge"):
+        try:
+            forbid_guest(request.headers.get("authorization"))
+        except APIError as exc:
+            return error_response(exc.status, exc.code, exc.message, exc.details)
     length = request.headers.get("content-length")
     if length is not None and length.isdigit() and int(length) > config.MAX_BODY_BYTES:
         return error_response(413, "PAYLOAD_TOO_LARGE", "Request body exceeds 1 MB.")
@@ -257,6 +266,13 @@ def health():
         return error_response(503, "UNAVAILABLE", "Database is not reachable.")
     if not STATE["seeded"]:
         return error_response(503, "UNAVAILABLE", "Baseline data is not seeded yet.")
+    if __import__("os").environ.get("DAY2_INFRA_REQUIRED") == "1":
+        try:
+            events_bus._redis().ping()
+            import httpx
+            httpx.get(config.MEDIA_API + "/v3/paths/list", timeout=1).raise_for_status()
+        except Exception:
+            return error_response(503, "UNAVAILABLE", "Redis or media server is not ready.")
     return {"status": "ok"}
 
 
@@ -470,7 +486,13 @@ async def match_stream(match_id: str):
                 yield f"event: score\ndata: {json.dumps(data)}\n\n"
             else:
                 yield ": keep-alive\n\n"
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.05)
 
     return StreamingResponse(events(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# Register Phase II after the original application is initialized.
+import sys
+from .day2 import install as install_day2
+DAY2 = install_day2(sys.modules[__name__])

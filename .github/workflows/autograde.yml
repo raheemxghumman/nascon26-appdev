@@ -1,0 +1,43 @@
+name: Day 1 regression and Day 2 contract, Grid and load checks
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DAY1_SALT: ${{ secrets.DAY1_SALT || 'ci-test-day1' }}
+      DAY2_SALT: ${{ secrets.DAY2_SALT || 'ci-test-day2' }}
+      JWT_SECRET: ci-test-only-jwt
+      BROWSER_BASE_URL: http://api:8080
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify locked Day 1 ancestry
+        run: git merge-base --is-ancestor "${{ vars.DAY1_BASE_SHA || 'ef195aa' }}" HEAD
+      - name: Install test dependencies
+        run: pip install -r backend/requirements.txt pytest pytest-cov pytest-xdist selenium httpx
+      - name: Backend regression and contract tests
+        run: python -m pytest tests/test_*.py --junitxml=tests/reports/backend-report.xml --cov=backend/app --cov-report=json:tests/reports/coverage.json
+      - name: Build and start complete stack
+        run: docker compose up -d --build --wait --wait-timeout 120
+      - name: Verify Grid and reset baseline
+        run: |
+          python scripts/verify_stack.py
+          curl --fail -X POST http://localhost:8080/audit/v1/reset -H 'Content-Type: application/json' -d '{}'
+      - name: Parallel guest browser tests
+        run: python -m pytest -n 3 tests/selenium/ --junitxml=tests/reports/selenium-report.xml
+      - name: Required 550-user k6 load test
+        run: docker run --rm --network host -v "$PWD:/work" -w /work grafana/k6:0.54.0 run --summary-export=tests/reports/k6-summary.json tests/k6_load.js
+      - name: Collect logs
+        if: always()
+        run: docker compose logs --no-color > tests/reports/compose.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: day2-test-reports, path: tests/reports/}

@@ -88,7 +88,7 @@ export async function login(
   if (
     !token ||
     !data.user_id ||
-    !data.tenant_id ||
+    (data.role !== "super_admin" && !data.tenant_id) ||
     ![
       "super_admin",
       "league_organizer",

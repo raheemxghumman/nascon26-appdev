@@ -18,3 +18,21 @@ Tests run with `./run_tests.sh`. Audit routes are wired in `backend/app/main.py`
 | NFR-4 | Offline tolerance: local cache + persistent action queue + sync with conflict resolution | `backend/app/main.py` (`offline_sync`, `_sync_one`); `mobile/src/storage.ts`, `mobile/src/state.tsx` | `tests/test_api.py::test_offline_sync_conflicts_and_replay`, `mobile/tests/domain.test.mjs` | Done |
 | NFR-5 | Security: JWT HS256 (alg none / tamper / expiry rejected), rate limit with Retry-After, input validation, 413 body limit, secure token storage on device | `backend/app/auth.py`, `backend/app/main.py` (`guards`, `read_json`), `mobile/src/storage.ts` (expo-secure-store) | `tests/test_api.py::test_tampered_none_and_missing_tokens`, `::test_rate_limit_and_body_limit`, `::test_login_route` | Done |
 | NFR-7 | Reproducibility: one command brings up and seeds the backend | `docker-compose.yml`, `backend/Dockerfile`, `backend/app/main.py` (`reset_state` at startup) | `tests/test_api.py::test_reset_contract_and_repeatable` | Done |
+# Phase II additions
+
+| Requirement | Source | Verification |
+|---|---|---|
+| FR-3.1 profiles/follows | `backend/app/day2.py` | Additional integration verification pending |
+| FR-3.2 key lifecycle/media | `streaming.py`, `backend/media/`, `mobile/src/live.tsx` | `tests/test_day2.py`; actual-media timing pending |
+| FR-3.3 co-stream/handoff | `costream.py`, `day2.py`, `backend/media/compositor.py` | contract tests pass; composed-media handoff pending |
+| FR-4.1 dynamic QR/export | `qr_guest.py`, `mobile/src/app/scan.tsx` | contract/export tests and real Grid tests pass; native scan pending |
+| FR-4.2 guest web | `backend/app/web/`, `day2.py` | six Grid cases pass |
+| FR-4.3 guest boundary | `main.py`, `qr_guest.py` | direct-write rejection tests pass |
+| FR-4.4 cart merge | `qr_guest.py` | concurrent replay and stock tests pass |
+| FR-5.2 retry/DLQ | `moderation_dlq.py` | failure-simulation contract tests pass; background push incomplete |
+| FR-5.3 moderation | `moderation_dlq.py` | exact examples, obfuscation and concurrency tests pass |
+| NFR-1 score latency | `day2.py`, `web/guest.js` | Grid DOM updates tested within 500ms; 25-viewer probe pending |
+| NFR-2 load | `tests/k6_load.js` | required profile written; full run pending |
+| NFR-6 metrics | `observability.py` | contract test passes |
+| NFR-8 accessibility | `web/guest.html`, `web/guest.css` | semantic labels, keyboard controls, 48px targets; partial Grid inspection |
+| NFR-9 privacy | `qr_guest.py`, `observability.py` | aggregate telemetry only; erasure needs broader verification |

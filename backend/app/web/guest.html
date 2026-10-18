@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>LeagueDesk · Matchday Live</title><link rel="stylesheet" href="/assets/guest.css"></head>
+<body>
+<header><a class="brand" href="/web/matches/match-m1/live">LEAGUEDESK<span> MATCHDAY LIVE</span></a><span class="pill" id="connection" role="status">Connecting</span></header>
+<main>
+  <div class="eyebrow">THE GAME. THE CLUB. THE COMMUNITY.</div>
+  <section class="match-heading"><div><h1 id="title">Matchday, wherever you are.</h1><p id="subtitle">Watch the action. Follow every point.</p></div><a class="quiet" id="app-link" href="nascon://entity/match-m1">Open in app ↗</a></section>
+  <div class="columns"><section>
+    <div class="video" data-testid="guest-video-player" aria-label="Live match video player">
+      <video id="video" controls playsinline autoplay muted aria-label="Match broadcast" hidden></video>
+      <iframe id="webrtc" title="Live video with playback controls" allow="autoplay; fullscreen; camera; microphone" hidden></iframe>
+      <div id="video-empty"><div class="play-symbol">▶</div><h2 id="video-message">Waiting for the broadcast</h2><p>The video will appear here when a creator goes live.</p></div>
+      <div class="video-label"><span class="live-dot"></span><span id="match-status">LIVE MATCH CENTRE</span></div>
+    </div>
+    <div class="scoreboard"><div><span class="eyebrow">LIVE SCORE</span><h2 id="teams">Alpha United · Alpha Rovers</h2></div><strong data-testid="live-score-banner" aria-live="polite">—</strong></div>
+    <section class="panel" id="creator-panel" hidden><h2>Broadcast to your community</h2><p>Sign in as a player to start your camera and microphone.</p><div class="actions"><button id="creator-login">Sign in</button><button id="start-broadcast">Start broadcast</button><button class="secondary" id="stop-broadcast" disabled>Stop broadcast</button></div><video id="camera-preview" muted autoplay playsinline aria-label="Your camera preview"></video><p id="broadcast-status" role="status"></p></section>
+    <section class="panel"><div class="section-heading"><h2>From the club shop</h2><span class="pill">Official merchandise</span></div><article data-testid="pinned-merch-card" class="merch"><div class="jersey" aria-hidden="true">10</div><div><span class="eyebrow">ALPHA UNITED</span><h3>Home Jersey 2026</h3><p>Size L · PKR 4,500</p><button data-testid="add-to-guest-cart-btn">Add to bag</button></div></article></section>
+    <section class="panel"><h2>Share this match</h2><p>The same QR code follows this match from preview to live coverage to the recording.</p><img id="qr" width="150" height="150" alt="QR code for this match"><div class="actions"><a id="qr-svg">Download SVG</a><a id="qr-png">Download PNG</a><a id="qr-pdf">Print PDF</a></div></section>
+  </section><aside>
+    <section class="panel bag"><div class="section-heading"><h2>Your bag</h2><span class="count" data-testid="guest-cart-count" aria-live="polite">0</span></div><p id="bag-detail">Pick something from the club shop.</p><button class="full" id="checkout">Proceed to checkout</button><p class="small">Watching is free. Sign in only when you want to join in.</p></section>
+    <section class="panel chat"><div class="section-heading"><h2>Match conversation</h2><span class="pill">Community</span></div><div data-testid="chat-message-list" role="log" aria-live="polite" aria-label="Live chat"><p class="small">Keep it sporting. Messages are moderated.</p></div><form id="chat-form"><label for="chat-input">Your message</label><input id="chat-input" data-testid="chat-input-field" placeholder="Talk about the match…" maxlength="1000"><button class="full" data-testid="chat-send-btn">Send message</button></form></section>
+  </aside></div><p id="notice" role="status"></p>
+</main>
+<dialog data-testid="progressive-auth-modal" aria-labelledby="auth-title"><form id="auth-form"><button type="button" class="close secondary" id="close-auth" aria-label="Close sign in">×</button><div class="eyebrow">JOIN THE COMMUNITY</div><h2 id="auth-title">Keep watching. Sign in to join in.</h2><p>Your bag and viewing position will stay with you.</p><label for="email">Email</label><input id="email" type="email" autocomplete="username" value="player@nascon.test" required><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required><button class="full">Sign in & continue</button><p id="auth-error" role="alert"></p></form></dialog>
+<footer>LEAGUEDESK <span>Built for the people behind the game.</span></footer><script src="/assets/guest.js" defer></script><script src="/assets/creator.js" defer></script>
+</body></html>

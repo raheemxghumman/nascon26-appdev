@@ -1,0 +1,37 @@
+logLevel: warn
+authMethod: http
+authHTTPAddress: http://api:8080/internal/media/auth
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+api: yes
+apiAddress: :9997
+metrics: yes
+metricsAddress: :9998
+rtsp: yes
+protocols: [tcp]
+rtmp: yes
+rtmpAddress: :1935
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigin: '*'
+hlsVariant: lowLatency
+hlsAlwaysRemux: yes
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigin: '*'
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: :8189
+webrtcAdditionalHosts: [localhost, 127.0.0.1]
+pathDefaults:
+  record: yes
+  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordFormat: fmp4
+  recordPartDuration: 1s
+  recordSegmentDuration: 10s
+  runOnRecordSegmentComplete: python /record_hook.py
+paths:
+  all_others:

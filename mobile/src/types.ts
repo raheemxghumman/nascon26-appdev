@@ -12,6 +12,7 @@ export type Session = {
   email: string;
   league_id?: string;
   club_id?: string;
+  player_id?: string;
 };
 export type Settings = { server: string; league: string; club: string };
 export type Fixture = {
